@@ -2,8 +2,8 @@ import telebot
 import pyowm
 import qrcode
 from random import choice, randint
-owm = pyowm.OWM(API_key='d081b7559097378ebce3dc627c021ee6', language = 'ru')
-bot = telebot.TeleBot("993359169:AAHWFCDsZ3vn-F6EE2tiK8gk_b4vZTdxgcU")
+owm = pyowm.OWM(API_key='<TOKEN>', language = 'ru')
+bot = telebot.TeleBot("<TOKEN>")
 keyboardmain = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboardmain.row("/подбрось", "/пароль", "/раскладка", "/ссылка", "/погода", "/QR")
 keyboardtranslitlanguage = telebot.types.ReplyKeyboardMarkup(True, True)
