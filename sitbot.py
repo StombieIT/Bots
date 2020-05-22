@@ -7,8 +7,8 @@ from os import remove
 from pyzbar import pyzbar
 from random import choice, randint
 #Токены
-owm = pyowm.OWM(API_key='d081b7559097378ebce3dc627c021ee6', language = 'ru')
-bot = telebot.TeleBot("993359169:AAHWFCDsZ3vn-F6EE2tiK8gk_b4vZTdxgcU")
+owm = pyowm.OWM(API_key='', language = 'ru')
+bot = telebot.TeleBot("")
 #Клавиатуры
 keyboardmain = telebot.types.ReplyKeyboardMarkup(True)
 keyboardmain.row("/подбрось", "/пароль", "/раскладка", "/ссылка", "/погода", "/QR")
