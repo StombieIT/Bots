@@ -1,16 +1,25 @@
+#Модули
 import telebot
 import pyowm
 import qrcode
+import cv2
+from os import remove
+from pyzbar import pyzbar
 from random import choice, randint
-owm = pyowm.OWM(API_key='<TOKEN>', language = 'ru')
-bot = telebot.TeleBot("<TOKEN>")
-keyboardmain = telebot.types.ReplyKeyboardMarkup(True, True)
+#Токены
+owm = pyowm.OWM(API_key='', language = 'ru')
+bot = telebot.TeleBot("")
+#Клавиатуры
+keyboardmain = telebot.types.ReplyKeyboardMarkup(True)
 keyboardmain.row("/подбрось", "/пароль", "/раскладка", "/ссылка", "/погода", "/QR")
 keyboardtranslitlanguage = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboardtranslitlanguage.row("Русский", "English")
+keyboardqr = telebot.types.ReplyKeyboardMarkup(True, True)
+keyboardqr.row("Сгенерировать", "Считать")
+#Сообщения
 @bot.message_handler(commands=["начать", "помощь", "start", "help"])
 def send_welcome(message):
-    bot.reply_to(message, "Cписок команд:\nПодбросить монетку - /flip, /подбрось\nСгенерировать пароль - /password, /пароль\nПоменять раскладку - /layout, /раскладка\nПолучить ссылку на скачивание видеоролика YouTube - /link, /ссылка\nПосмотреть погоду - /weather, /погода\nСгенерировать QR код - /QR", reply_markup=keyboardmain)
+    bot.reply_to(message, "Cписок команд:\nПодбросить монетку - /flip, /подбрось\nСгенерировать пароль - /password, /пароль\nПоменять раскладку - /layout, /раскладка\nПолучить ссылку на скачивание видеоролика YouTube - /link, /ссылка\nПосмотреть погоду - /weather, /погода\nСгенерировать, считать QR код - /QR", reply_markup=keyboardmain)
 #Монетка
 @bot.message_handler(commands=["flip", "подбрось"])
 def flip_coin(message):
@@ -49,7 +58,7 @@ def generate_password(message):
             bot.send_message(message.chat.id, password)
         else:
             bot.reply_to(message, "Некорректно указано кол-во символов 🙈.")
-#Транслит
+#Раскладка
 @bot.message_handler(commands=["layout", "раскладка"])
 def choose_language(message):
 	bot.reply_to(message, "Укажите некорректную раскладку.", reply_markup=keyboardtranslitlanguage)
@@ -154,8 +163,17 @@ def weather_choose_city(message):
 #QR код
 @bot.message_handler(commands=['QR'])
 def qr_answer(message):
-    bot.reply_to(message, 'Укажите текст, содержащий не более 256 символов.')
-    bot.register_next_step_handler(message, qr_generate)
+    bot.reply_to(message, 'Укажите действие.', reply_markup=keyboardqr)
+    bot.register_next_step_handler(message, qr_choice)
+def qr_choice(message):
+    if message.text == 'Сгенерировать':
+        bot.send_message(message.chat.id, 'Укажите текст, содержащий не более 256 символов.')
+        bot.register_next_step_handler(message, qr_generate)
+    elif message.text == 'Считать':
+        bot.send_message(message.chat.id, 'Прикрепите изображение с QR кодом.')
+        bot.register_next_step_handler(message, qr_read)
+    else:
+        bot.reply_to(message, 'Некорректно указано действие 🙈.')
 def qr_generate(message):
     if len(message.text) <= 256:
         image = qrcode.make(message.text)
@@ -164,8 +182,26 @@ def qr_generate(message):
         bot.send_message(message.chat.id, 'Готово:')
         bot.send_photo(message.chat.id, byte)
         byte.close()
+        remove('qrcode.png')
     else:
         bot.reply_to(message, 'Превышено максимальное допустимое количество символов 🙈.')
+def qr_read(message):
+    info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
+    byte = bot.download_file(info.file_path)
+    with open('qrread.png', 'wb') as image:
+        image.write(byte)
+    image = cv2.imread('qrread.png')
+    barcodes = pyzbar.decode(image)
+    for barcode in barcodes:
+        barcodeData = barcode.data.decode('utf-8')
+    try:
+        type(barcodeData)
+    except UnboundLocalError:
+        bot.reply_to(message, 'Не удалось распознать QR код 🙈.')
+    else:
+        bot.send_message(message.chat.id, 'Готово:')
+        bot.send_message(message.chat.id, barcodeData)
+    remove('qrread.png')
 #Авто-ответ
 @bot.message_handler(content_types=["text"])
 def answer(message):
