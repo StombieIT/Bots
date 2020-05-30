@@ -1,14 +1,64 @@
 #Модули
 import telebot
 import pyowm
+import sqlite3
 import qrcode
 from cv2 import imread
 from os import remove
 from pyzbar import pyzbar
 from random import choice, randint
-#Токены
+from datetime import datetime
+#Функции
+def log(id, command, date, time):
+    db = sqlite3.connect('logs.db')
+    sql = db.cursor()
+    sql.execute("""CREATE TABLE IF NOT EXISTS users (
+        id INT,
+        command TEXT,
+        date TEXT,
+        time TEXT
+    )""")
+    db.commit()
+    sql.execute(f"INSERT INTO users VALUES (?, ?, ?, ?)", (id, command, date, time))
+    db.commit()
+def date():
+	day = dt.day
+	month = dt.month
+	year = dt.year
+	if day < 10:
+		day = '0' + str(day)
+	else:
+		day = str(day)
+	if month < 10:
+		month = '0' + str(month)
+	else:
+		month = str(month)
+	if year < 10:
+		year = '0' + str(year)
+	else:
+		year = str(year)
+	return day + '.' + month + '.' + year
+def time():
+	hour = dt.hour
+	minute = dt.minute
+	second = dt.second
+	if hour < 10:
+		hour = '0' + str(hour)
+	else:
+		hour = str(hour)
+	if minute < 10:
+		minute = '0' + str(minute)
+	else:
+		minute = str(minute)
+	if second < 10:
+		second = '0' + str(second)
+	else:
+		second = str(second)
+	return hour + ':' + minute + ':' + second
+#Токены и прочие настройки
 owm = pyowm.OWM(API_key='', language = 'ru')
 bot = telebot.TeleBot("")
+dt = datetime.now()
 #Клавиатуры
 keyboardmain = telebot.types.ReplyKeyboardMarkup(True)
 keyboardmain.row("/подбрось", "/пароль", "/раскладка", "/ссылка", "/погода", "/QR")
@@ -19,10 +69,12 @@ keyboardqr.row("Сгенерировать", "Считать")
 #Сообщения
 @bot.message_handler(commands=["начать", "помощь", "start", "help"])
 def send_welcome(message):
+    log(message.chat.id, message.text, date(), time())
     bot.reply_to(message, "Cписок команд:\nПодбросить монетку - /flip, /подбрось\nСгенерировать пароль - /password, /пароль\nПоменять раскладку - /layout, /раскладка\nПолучить ссылку на скачивание видеоролика YouTube - /link, /ссылка\nПосмотреть погоду - /weather, /погода\nСгенерировать, считать QR код - /QR", reply_markup=keyboardmain)
 #Монетка
 @bot.message_handler(commands=["flip", "подбрось"])
 def flip_coin(message):
+    log(message.chat.id, message.text, date(), time())
     flip = choice([True, False])
     if flip == True:
         bot.reply_to(message, "Выпал орёл.")
@@ -31,7 +83,8 @@ def flip_coin(message):
 #Генератор паролей
 @bot.message_handler(commands=["password", "пароль"])
 def password_count(message):
-    bot.reply_to(message, "Укажите кол-во символов в пароле.")
+    log(message.chat.id, message.text, date(), time())
+    bot.reply_to(message, "Укажите необходимое количество символов, не превышающее 32.")
     bot.register_next_step_handler(message, generate_password)
 def generate_password(message):
     if str(type(message.text)) == "<class 'str'>":
@@ -45,27 +98,31 @@ def generate_password(message):
         except ValueError:
             bot.reply_to(message, "Обнаружены посторонние символы 🙈.")
         else:
-            if int(message.text) <= 4096 and int(message.text) > 0:
-                for i in range(int(message.text)):
-                    if (i % 5 == 0) and (i != 0):
-                        password += sym[randint(0, len(sym) - 1)]
-                    elif i % 2 == 0:
-                        password += letters[randint(0, len(letters) - 1)]
-                    elif i % 3 == 0:
-                        password += num[randint(0, len(num) - 1)]
-                    else:
-                        password += letterg[randint(0, len(letterg) - 1)]
-                bot.send_message(message.chat.id, "Готово:")
-                bot.send_message(message.chat.id, password)
+            if int(message.text) > 0:
+                if int(message.text) <= 32:
+                    for i in range(int(message.text)):
+                        if (i % 5 == 0) and (i != 0):
+                            password += sym[randint(0, len(sym) - 1)]
+                        elif i % 2 == 0:
+                            password += letters[randint(0, len(letters) - 1)]
+                        elif i % 3 == 0:
+                            password += num[randint(0, len(num) - 1)]
+                        else:
+                            password += letterg[randint(0, len(letterg) - 1)]
+                    bot.send_message(message.chat.id, "Готово:")
+                    bot.send_message(message.chat.id, password)
+                else:
+                    bot.reply_to(message, 'Превышено максимальное допустимое количество символов 🙈.')
             else:
-                bot.reply_to(message, "Некорректно указано кол-во символов 🙈.")
+                bot.reply_to(message, "Некорректно указано количество символов 🙈.")
     else:
         bot.reply_to(message, 'Обнаружен некорректный формат сообщения 🙈.')
 #Раскладка
 @bot.message_handler(commands=["layout", "раскладка"])
 def choose_language(message):
-	bot.reply_to(message, "Укажите некорректную раскладку.", reply_markup=keyboardtranslitlanguage)
-	bot.register_next_step_handler(message, incorrect_text)
+    log(message.chat.id, message.text, date(), time())
+    bot.reply_to(message, "Укажите некорректную раскладку.", reply_markup=keyboardtranslitlanguage)
+    bot.register_next_step_handler(message, incorrect_text)
 def incorrect_text(message):
     if str(type(message.text)) == "<class 'str'>":
         global language
@@ -103,6 +160,7 @@ def retranslit(message):
 #Перевод ссылок для скачивания
 @bot.message_handler(commands=["ссылка", "link"])
 def link_read(message):
+    log(message.chat.id, message.text, date(), time())
     bot.reply_to(message, "Укажите ссылку на видеоролик.")
     bot.register_next_step_handler(message, link_generator)
 def link_generator(message):
@@ -148,6 +206,7 @@ def generate_link(domain, proto):
 #Погода
 @bot.message_handler(commands=['weather', 'погода'])
 def weather_answer(message):
+    log(message.chat.id, message.text, date(), time())
     bot.reply_to(message, 'Укажите населённый пункт.')
     bot.register_next_step_handler(message, weather_choose_city)
 def weather_choose_city(message):
@@ -177,6 +236,7 @@ def weather_choose_city(message):
 #QR код
 @bot.message_handler(commands=['QR'])
 def qr_answer(message):
+    log(message.chat.id, message.text, date(), time())
     bot.reply_to(message, 'Укажите действие.', reply_markup=keyboardqr)
     bot.register_next_step_handler(message, qr_choice)
 def qr_choice(message):
